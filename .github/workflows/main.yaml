@@ -1,0 +1,24 @@
+name: Main
+on: [ push, pull_request ]
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: dev
+      - run: dart pub get
+      - run: dart analyze
+  formatting:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: dev
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .

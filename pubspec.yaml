@@ -1,0 +1,10 @@
+name: mpris
+description: A library to interface D-Bus MPRIS media players on linux systems.
+version: 1.0.0
+homepage: https://github.com/jld3103/dart-mpris
+
+environment:
+  sdk: '>=2.12.0 <3.0.0'
+
+dependencies:
+  dbus: ">=0.2.5 <0.3.0"

@@ -1,0 +1,3 @@
+[submodule "mpris-spec"]
+	path = mpris-spec
+	url = https://gitlab.freedesktop.org/mpris/mpris-spec
