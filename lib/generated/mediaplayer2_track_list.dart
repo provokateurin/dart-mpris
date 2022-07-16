@@ -5,165 +5,177 @@ import 'package:dbus/dbus.dart';
 
 /// Signal data for org.mpris.MediaPlayer2.TrackList.TrackListReplaced.
 class MediaPlayer2TrackListTrackListReplaced extends DBusSignal {
-  List<String> get Tracks => (values[0] as DBusArray)
-      .children
-      .map((child) => (child as DBusObjectPath).value)
-      .toList();
-  String get CurrentTrack => (values[1] as DBusObjectPath).value;
+  List<String> get Tracks => values[0].asObjectPathArray().toList();
+  String get CurrentTrack => values[1].asObjectPath();
 
   MediaPlayer2TrackListTrackListReplaced(DBusSignal signal)
-      : super(signal.sender, signal.path, signal.interface, signal.member,
-            signal.values);
+      : super(
+            sender: signal.sender,
+            path: signal.path,
+            interface: signal.interface,
+            name: signal.name,
+            values: signal.values);
 }
 
 /// Signal data for org.mpris.MediaPlayer2.TrackList.TrackAdded.
 class MediaPlayer2TrackListTrackAdded extends DBusSignal {
-  Map<String, DBusValue> get Metadata =>
-      (values[0] as DBusDict).children.map((key, value) =>
-          MapEntry((key as DBusString).value, (value as DBusVariant).value));
-  String get AfterTrack => (values[1] as DBusObjectPath).value;
+  Map<String, DBusValue> get Metadata => values[0].asStringVariantDict();
+  String get AfterTrack => values[1].asObjectPath();
 
   MediaPlayer2TrackListTrackAdded(DBusSignal signal)
-      : super(signal.sender, signal.path, signal.interface, signal.member,
-            signal.values);
+      : super(
+            sender: signal.sender,
+            path: signal.path,
+            interface: signal.interface,
+            name: signal.name,
+            values: signal.values);
 }
 
 /// Signal data for org.mpris.MediaPlayer2.TrackList.TrackRemoved.
 class MediaPlayer2TrackListTrackRemoved extends DBusSignal {
-  String get TrackId => (values[0] as DBusObjectPath).value;
+  String get TrackId => values[0].asObjectPath();
 
   MediaPlayer2TrackListTrackRemoved(DBusSignal signal)
-      : super(signal.sender, signal.path, signal.interface, signal.member,
-            signal.values);
+      : super(
+            sender: signal.sender,
+            path: signal.path,
+            interface: signal.interface,
+            name: signal.name,
+            values: signal.values);
 }
 
 /// Signal data for org.mpris.MediaPlayer2.TrackList.TrackMetadataChanged.
 class MediaPlayer2TrackListTrackMetadataChanged extends DBusSignal {
-  String get TrackId => (values[0] as DBusObjectPath).value;
-  Map<String, DBusValue> get Metadata =>
-      (values[1] as DBusDict).children.map((key, value) =>
-          MapEntry((key as DBusString).value, (value as DBusVariant).value));
+  String get TrackId => values[0].asObjectPath();
+  Map<String, DBusValue> get Metadata => values[1].asStringVariantDict();
 
   MediaPlayer2TrackListTrackMetadataChanged(DBusSignal signal)
-      : super(signal.sender, signal.path, signal.interface, signal.member,
-            signal.values);
+      : super(
+            sender: signal.sender,
+            path: signal.path,
+            interface: signal.interface,
+            name: signal.name,
+            values: signal.values);
 }
 
 class MediaPlayer2TrackList extends DBusRemoteObject {
+  /// Stream of org.mpris.MediaPlayer2.TrackList.TrackListReplaced signals.
+  late final Stream<MediaPlayer2TrackListTrackListReplaced> trackListReplaced;
+
+  /// Stream of org.mpris.MediaPlayer2.TrackList.TrackAdded signals.
+  late final Stream<MediaPlayer2TrackListTrackAdded> trackAdded;
+
+  /// Stream of org.mpris.MediaPlayer2.TrackList.TrackRemoved signals.
+  late final Stream<MediaPlayer2TrackListTrackRemoved> trackRemoved;
+
+  /// Stream of org.mpris.MediaPlayer2.TrackList.TrackMetadataChanged signals.
+  late final Stream<MediaPlayer2TrackListTrackMetadataChanged>
+      trackMetadataChanged;
+
   MediaPlayer2TrackList(DBusClient client, String destination,
       {DBusObjectPath path =
           const DBusObjectPath.unchecked('/org/mpris/MediaPlayer2')})
-      : super(client, destination, path);
+      : super(client, name: destination, path: path) {
+    trackListReplaced = DBusRemoteObjectSignalStream(
+            object: this,
+            interface: 'org.mpris.MediaPlayer2.TrackList',
+            name: 'TrackListReplaced',
+            signature: DBusSignature('aoo'))
+        .asBroadcastStream()
+        .map((signal) => MediaPlayer2TrackListTrackListReplaced(signal));
+
+    trackAdded = DBusRemoteObjectSignalStream(
+            object: this,
+            interface: 'org.mpris.MediaPlayer2.TrackList',
+            name: 'TrackAdded',
+            signature: DBusSignature('a{sv}o'))
+        .asBroadcastStream()
+        .map((signal) => MediaPlayer2TrackListTrackAdded(signal));
+
+    trackRemoved = DBusRemoteObjectSignalStream(
+            object: this,
+            interface: 'org.mpris.MediaPlayer2.TrackList',
+            name: 'TrackRemoved',
+            signature: DBusSignature('o'))
+        .asBroadcastStream()
+        .map((signal) => MediaPlayer2TrackListTrackRemoved(signal));
+
+    trackMetadataChanged = DBusRemoteObjectSignalStream(
+            object: this,
+            interface: 'org.mpris.MediaPlayer2.TrackList',
+            name: 'TrackMetadataChanged',
+            signature: DBusSignature('oa{sv}'))
+        .asBroadcastStream()
+        .map((signal) => MediaPlayer2TrackListTrackMetadataChanged(signal));
+  }
 
   /// Gets org.mpris.MediaPlayer2.TrackList.Tracks
   Future<List<String>> getTracks() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.TrackList', 'Tracks');
-    return (value as DBusArray)
-        .children
-        .map((child) => (child as DBusObjectPath).value)
-        .toList();
+    var value = await getProperty('org.mpris.MediaPlayer2.TrackList', 'Tracks',
+        signature: DBusSignature('ao'));
+    return value.asObjectPathArray().toList();
   }
 
   /// Gets org.mpris.MediaPlayer2.TrackList.CanEditTracks
   Future<bool> getCanEditTracks() async {
-    var value =
-        await getProperty('org.mpris.MediaPlayer2.TrackList', 'CanEditTracks');
-    return (value as DBusBoolean).value;
+    var value = await getProperty(
+        'org.mpris.MediaPlayer2.TrackList', 'CanEditTracks',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Invokes org.mpris.MediaPlayer2.TrackList.GetTracksMetadata()
   Future<List<Map<String, DBusValue>>> callGetTracksMetadata(
-      List<String> TrackIds) async {
-    var result = await callMethod(
-        'org.mpris.MediaPlayer2.TrackList', 'GetTracksMetadata', [
-      DBusArray(
-          DBusSignature('o'), TrackIds.map((child) => DBusObjectPath(child)))
-    ]);
-    return (result.returnValues[0] as DBusArray)
-        .children
-        .map((child) => (child as DBusDict).children.map((key, value) =>
-            MapEntry((key as DBusString).value, (value as DBusVariant).value)))
+      List<String> TrackIds,
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    var result = await callMethod('org.mpris.MediaPlayer2.TrackList',
+        'GetTracksMetadata', [DBusArray.objectPath(TrackIds)],
+        replySignature: DBusSignature('aa{sv}'),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
+    return result.returnValues[0]
+        .asArray()
+        .map((child) => child.asStringVariantDict())
         .toList();
   }
 
   /// Invokes org.mpris.MediaPlayer2.TrackList.AddTrack()
-  Future callAddTrack(String Uri, String AfterTrack, bool SetAsCurrent) async {
-    await callMethod('org.mpris.MediaPlayer2.TrackList', 'AddTrack', [
-      DBusString(Uri),
-      DBusObjectPath(AfterTrack),
-      DBusBoolean(SetAsCurrent)
-    ]);
+  Future<void> callAddTrack(String Uri, String AfterTrack, bool SetAsCurrent,
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    await callMethod(
+        'org.mpris.MediaPlayer2.TrackList',
+        'AddTrack',
+        [
+          DBusString(Uri),
+          DBusObjectPath(AfterTrack),
+          DBusBoolean(SetAsCurrent)
+        ],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.TrackList.RemoveTrack()
-  Future callRemoveTrack(String TrackId) async {
+  Future<void> callRemoveTrack(String TrackId,
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
     await callMethod('org.mpris.MediaPlayer2.TrackList', 'RemoveTrack',
-        [DBusObjectPath(TrackId)]);
+        [DBusObjectPath(TrackId)],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.TrackList.GoTo()
-  Future callGoTo(String TrackId) async {
+  Future<void> callGoTo(String TrackId,
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
     await callMethod(
-        'org.mpris.MediaPlayer2.TrackList', 'GoTo', [DBusObjectPath(TrackId)]);
-  }
-
-  /// Subscribes to org.mpris.MediaPlayer2.TrackList.TrackListReplaced.
-  Stream<MediaPlayer2TrackListTrackListReplaced> subscribeTrackListReplaced() {
-    var signals = subscribeSignal(
-        'org.mpris.MediaPlayer2.TrackList', 'TrackListReplaced');
-    return signals.map((signal) {
-      if (signal.values.length == 2 &&
-          signal.values[0].signature == DBusSignature('ao') &&
-          signal.values[1].signature == DBusSignature('o')) {
-        return MediaPlayer2TrackListTrackListReplaced(signal);
-      } else {
-        throw 'org.mpris.MediaPlayer2.TrackList.TrackListReplaced conatins invalid values \${signal.values}';
-      }
-    });
-  }
-
-  /// Subscribes to org.mpris.MediaPlayer2.TrackList.TrackAdded.
-  Stream<MediaPlayer2TrackListTrackAdded> subscribeTrackAdded() {
-    var signals =
-        subscribeSignal('org.mpris.MediaPlayer2.TrackList', 'TrackAdded');
-    return signals.map((signal) {
-      if (signal.values.length == 2 &&
-          signal.values[0].signature == DBusSignature('a{sv}') &&
-          signal.values[1].signature == DBusSignature('o')) {
-        return MediaPlayer2TrackListTrackAdded(signal);
-      } else {
-        throw 'org.mpris.MediaPlayer2.TrackList.TrackAdded conatins invalid values \${signal.values}';
-      }
-    });
-  }
-
-  /// Subscribes to org.mpris.MediaPlayer2.TrackList.TrackRemoved.
-  Stream<MediaPlayer2TrackListTrackRemoved> subscribeTrackRemoved() {
-    var signals =
-        subscribeSignal('org.mpris.MediaPlayer2.TrackList', 'TrackRemoved');
-    return signals.map((signal) {
-      if (signal.values.length == 1 &&
-          signal.values[0].signature == DBusSignature('o')) {
-        return MediaPlayer2TrackListTrackRemoved(signal);
-      } else {
-        throw 'org.mpris.MediaPlayer2.TrackList.TrackRemoved conatins invalid values \${signal.values}';
-      }
-    });
-  }
-
-  /// Subscribes to org.mpris.MediaPlayer2.TrackList.TrackMetadataChanged.
-  Stream<MediaPlayer2TrackListTrackMetadataChanged>
-      subscribeTrackMetadataChanged() {
-    var signals = subscribeSignal(
-        'org.mpris.MediaPlayer2.TrackList', 'TrackMetadataChanged');
-    return signals.map((signal) {
-      if (signal.values.length == 2 &&
-          signal.values[0].signature == DBusSignature('o') &&
-          signal.values[1].signature == DBusSignature('a{sv}')) {
-        return MediaPlayer2TrackListTrackMetadataChanged(signal);
-      } else {
-        throw 'org.mpris.MediaPlayer2.TrackList.TrackMetadataChanged conatins invalid values \${signal.values}';
-      }
-    });
+        'org.mpris.MediaPlayer2.TrackList', 'GoTo', [DBusObjectPath(TrackId)],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 }

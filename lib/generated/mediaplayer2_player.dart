@@ -5,31 +5,47 @@ import 'package:dbus/dbus.dart';
 
 /// Signal data for org.mpris.MediaPlayer2.Player.Seeked.
 class MediaPlayer2PlayerSeeked extends DBusSignal {
-  int get Position => (values[0] as DBusInt64).value;
+  int get Position => values[0].asInt64();
 
   MediaPlayer2PlayerSeeked(DBusSignal signal)
-      : super(signal.sender, signal.path, signal.interface, signal.member,
-            signal.values);
+      : super(
+            sender: signal.sender,
+            path: signal.path,
+            interface: signal.interface,
+            name: signal.name,
+            values: signal.values);
 }
 
 class MediaPlayer2Player extends DBusRemoteObject {
+  /// Stream of org.mpris.MediaPlayer2.Player.Seeked signals.
+  late final Stream<MediaPlayer2PlayerSeeked> seeked;
+
   MediaPlayer2Player(DBusClient client, String destination,
       {DBusObjectPath path =
           const DBusObjectPath.unchecked('/org/mpris/MediaPlayer2')})
-      : super(client, destination, path);
+      : super(client, name: destination, path: path) {
+    seeked = DBusRemoteObjectSignalStream(
+            object: this,
+            interface: 'org.mpris.MediaPlayer2.Player',
+            name: 'Seeked',
+            signature: DBusSignature('x'))
+        .asBroadcastStream()
+        .map((signal) => MediaPlayer2PlayerSeeked(signal));
+  }
 
   /// Gets org.mpris.MediaPlayer2.Player.PlaybackStatus
   Future<String> getPlaybackStatus() async {
-    var value =
-        await getProperty('org.mpris.MediaPlayer2.Player', 'PlaybackStatus');
-    return (value as DBusString).value;
+    var value = await getProperty(
+        'org.mpris.MediaPlayer2.Player', 'PlaybackStatus',
+        signature: DBusSignature('s'));
+    return value.asString();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.LoopStatus
   Future<String> getLoopStatus() async {
-    var value =
-        await getProperty('org.mpris.MediaPlayer2.Player', 'LoopStatus');
-    return (value as DBusString).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'LoopStatus',
+        signature: DBusSignature('s'));
+    return value.asString();
   }
 
   /// Sets org.mpris.MediaPlayer2.Player.LoopStatus
@@ -40,8 +56,9 @@ class MediaPlayer2Player extends DBusRemoteObject {
 
   /// Gets org.mpris.MediaPlayer2.Player.Rate
   Future<double> getRate() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Rate');
-    return (value as DBusDouble).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Rate',
+        signature: DBusSignature('d'));
+    return value.asDouble();
   }
 
   /// Sets org.mpris.MediaPlayer2.Player.Rate
@@ -52,8 +69,9 @@ class MediaPlayer2Player extends DBusRemoteObject {
 
   /// Gets org.mpris.MediaPlayer2.Player.Shuffle
   Future<bool> getShuffle() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Shuffle');
-    return (value as DBusBoolean).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Shuffle',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Sets org.mpris.MediaPlayer2.Player.Shuffle
@@ -64,15 +82,16 @@ class MediaPlayer2Player extends DBusRemoteObject {
 
   /// Gets org.mpris.MediaPlayer2.Player.Metadata
   Future<Map<String, DBusValue>> getMetadata() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Metadata');
-    return (value as DBusDict).children.map((key, value) =>
-        MapEntry((key as DBusString).value, (value as DBusVariant).value));
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Metadata',
+        signature: DBusSignature('a{sv}'));
+    return value.asStringVariantDict();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.Volume
   Future<double> getVolume() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Volume');
-    return (value as DBusDouble).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Volume',
+        signature: DBusSignature('d'));
+    return value.asDouble();
   }
 
   /// Sets org.mpris.MediaPlayer2.Player.Volume
@@ -83,120 +102,160 @@ class MediaPlayer2Player extends DBusRemoteObject {
 
   /// Gets org.mpris.MediaPlayer2.Player.Position
   Future<int> getPosition() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Position');
-    return (value as DBusInt64).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'Position',
+        signature: DBusSignature('x'));
+    return value.asInt64();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.MinimumRate
   Future<double> getMinimumRate() async {
-    var value =
-        await getProperty('org.mpris.MediaPlayer2.Player', 'MinimumRate');
-    return (value as DBusDouble).value;
+    var value = await getProperty(
+        'org.mpris.MediaPlayer2.Player', 'MinimumRate',
+        signature: DBusSignature('d'));
+    return value.asDouble();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.MaximumRate
   Future<double> getMaximumRate() async {
-    var value =
-        await getProperty('org.mpris.MediaPlayer2.Player', 'MaximumRate');
-    return (value as DBusDouble).value;
+    var value = await getProperty(
+        'org.mpris.MediaPlayer2.Player', 'MaximumRate',
+        signature: DBusSignature('d'));
+    return value.asDouble();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.CanGoNext
   Future<bool> getCanGoNext() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanGoNext');
-    return (value as DBusBoolean).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanGoNext',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.CanGoPrevious
   Future<bool> getCanGoPrevious() async {
-    var value =
-        await getProperty('org.mpris.MediaPlayer2.Player', 'CanGoPrevious');
-    return (value as DBusBoolean).value;
+    var value = await getProperty(
+        'org.mpris.MediaPlayer2.Player', 'CanGoPrevious',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.CanPlay
   Future<bool> getCanPlay() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanPlay');
-    return (value as DBusBoolean).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanPlay',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.CanPause
   Future<bool> getCanPause() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanPause');
-    return (value as DBusBoolean).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanPause',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.CanSeek
   Future<bool> getCanSeek() async {
-    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanSeek');
-    return (value as DBusBoolean).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanSeek',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Gets org.mpris.MediaPlayer2.Player.CanControl
   Future<bool> getCanControl() async {
-    var value =
-        await getProperty('org.mpris.MediaPlayer2.Player', 'CanControl');
-    return (value as DBusBoolean).value;
+    var value = await getProperty('org.mpris.MediaPlayer2.Player', 'CanControl',
+        signature: DBusSignature('b'));
+    return value.asBoolean();
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.Next()
-  Future callNext() async {
-    await callMethod('org.mpris.MediaPlayer2.Player', 'Next', []);
+  Future<void> callNext(
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    await callMethod('org.mpris.MediaPlayer2.Player', 'Next', [],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.Previous()
-  Future callPrevious() async {
-    await callMethod('org.mpris.MediaPlayer2.Player', 'Previous', []);
+  Future<void> callPrevious(
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    await callMethod('org.mpris.MediaPlayer2.Player', 'Previous', [],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.Pause()
-  Future callPause() async {
-    await callMethod('org.mpris.MediaPlayer2.Player', 'Pause', []);
+  Future<void> callPause(
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    await callMethod('org.mpris.MediaPlayer2.Player', 'Pause', [],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.PlayPause()
-  Future callPlayPause() async {
-    await callMethod('org.mpris.MediaPlayer2.Player', 'PlayPause', []);
+  Future<void> callPlayPause(
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    await callMethod('org.mpris.MediaPlayer2.Player', 'PlayPause', [],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.Stop()
-  Future callStop() async {
-    await callMethod('org.mpris.MediaPlayer2.Player', 'Stop', []);
+  Future<void> callStop(
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    await callMethod('org.mpris.MediaPlayer2.Player', 'Stop', [],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.Play()
-  Future callPlay() async {
-    await callMethod('org.mpris.MediaPlayer2.Player', 'Play', []);
+  Future<void> callPlay(
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
+    await callMethod('org.mpris.MediaPlayer2.Player', 'Play', [],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.Seek()
-  Future callSeek(int Offset) async {
+  Future<void> callSeek(int Offset,
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
     await callMethod(
-        'org.mpris.MediaPlayer2.Player', 'Seek', [DBusInt64(Offset)]);
+        'org.mpris.MediaPlayer2.Player', 'Seek', [DBusInt64(Offset)],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.SetPosition()
-  Future callSetPosition(String TrackId, int Position) async {
+  Future<void> callSetPosition(String TrackId, int Position,
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
     await callMethod('org.mpris.MediaPlayer2.Player', 'SetPosition',
-        [DBusObjectPath(TrackId), DBusInt64(Position)]);
+        [DBusObjectPath(TrackId), DBusInt64(Position)],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 
   /// Invokes org.mpris.MediaPlayer2.Player.OpenUri()
-  Future callOpenUri(String Uri) async {
+  Future<void> callOpenUri(String Uri,
+      {bool noAutoStart = false,
+      bool allowInteractiveAuthorization = false}) async {
     await callMethod(
-        'org.mpris.MediaPlayer2.Player', 'OpenUri', [DBusString(Uri)]);
-  }
-
-  /// Subscribes to org.mpris.MediaPlayer2.Player.Seeked.
-  Stream<MediaPlayer2PlayerSeeked> subscribeSeeked() {
-    var signals = subscribeSignal('org.mpris.MediaPlayer2.Player', 'Seeked');
-    return signals.map((signal) {
-      if (signal.values.length == 1 &&
-          signal.values[0].signature == DBusSignature('x')) {
-        return MediaPlayer2PlayerSeeked(signal);
-      } else {
-        throw 'org.mpris.MediaPlayer2.Player.Seeked conatins invalid values \${signal.values}';
-      }
-    });
+        'org.mpris.MediaPlayer2.Player', 'OpenUri', [DBusString(Uri)],
+        replySignature: DBusSignature(''),
+        noAutoStart: noAutoStart,
+        allowInteractiveAuthorization: allowInteractiveAuthorization);
   }
 }
