@@ -41,6 +41,32 @@ class MPRISPlayer {
   final MediaPlayer2 _servicePlayer;
   final MediaPlayer2Player _mediaPlayer;
 
+  /// Updates at each change of a property;
+  Stream<PropertyChangedEvent> propertiesChanged() =>
+      _mediaPlayer.propertiesChanged.map((event) {
+        final map = event.values[1].asStringVariantDict();
+
+        late final PropertyChangedEvent result;
+        if (map.containsKey('PlaybackStatus')) {
+          result = PlaybackStatusChanged(
+              PlaybackStatus.fromString(map['PlaybackStatus']!.asString()));
+        } else if (map.containsKey('Metadata')) {
+          result = MetaDataChanged(
+              Metadata.fromMap(map['Metadata']!.asStringVariantDict()));
+        } else if (map.containsKey('LoopStatus')) {
+          result = LoopStatusChanged(
+              LoopStatus.fromString(map['LoopStatus']!.asString()));
+        } else if (map.containsKey('Shuffle')) {
+          result = ShuffleChanged(map['Shuffle']!.asBoolean());
+        } else if (map.containsKey('Volume')) {
+          result = VolumeChanged(map['Volume']!.asDouble());
+        } else {
+          result = UnsuportedEvent(map);
+        }
+
+        return result;
+      });
+
   /// A friendly name to identify the media player to users
   Future<String> getIdentity() => _servicePlayer.getIdentity();
 
@@ -83,31 +109,13 @@ class MPRISPlayer {
   /// Gets org.mpris.MediaPlayer2.Player.PlaybackStatus
   Future<PlaybackStatus> getPlaybackStatus() async {
     final status = await _mediaPlayer.getPlaybackStatus();
-    switch (status) {
-      case 'Playing':
-        return PlaybackStatus.playing;
-      case 'Paused':
-        return PlaybackStatus.paused;
-      case 'Stopped':
-        return PlaybackStatus.stopped;
-      default:
-        throw Exception("Unknown playback status '$status'");
-    }
+    return PlaybackStatus.fromString(status);
   }
 
   /// Get the current loop / repeat status
   Future<LoopStatus> getLoopStatus() async {
     final status = await _mediaPlayer.getLoopStatus();
-    switch (status) {
-      case 'None':
-        return LoopStatus.none;
-      case 'Track':
-        return LoopStatus.track;
-      case 'Playlist':
-        return LoopStatus.playlist;
-      default:
-        throw Exception("Unknown loop status '$status'");
-    }
+    return LoopStatus.fromString(status);
   }
 
   /// Set the current loop / repeat status
@@ -207,11 +215,12 @@ class MPRISPlayer {
   /// Uri of the track to load (This is used to tell the media player which track to play)
   Future openUri(String uri) => _mediaPlayer.callOpenUri(uri);
 
-/*
-  This doesn't work
-  Stream<MediaPlayer2PlayerSeeked> subscribeSeeked() =>
-      _mediaPlayer.subscribeSeeked();
-   */
+  /// Indicates that the track position has changed in a way that is inconsistant with the current playing state.
+  /// When this signal is not received, clients should assume that:
+  /// - When playing, the position progresses according to the rate property.
+  /// - When paused, it remains constant.
+  Stream<Duration> seeked() => _mediaPlayer.seeked
+      .map((event) => Duration(microseconds: event.Position));
 }
 
 /// The current loop / repeat status
@@ -223,7 +232,20 @@ enum LoopStatus {
   track,
 
   /// If the playback loops through a list of tracks
-  playlist,
+  playlist;
+
+  factory LoopStatus.fromString(status) {
+    switch (status) {
+      case 'None':
+        return LoopStatus.none;
+      case 'Track':
+        return LoopStatus.track;
+      case 'Playlist':
+        return LoopStatus.playlist;
+      default:
+        throw Exception("Unknown loop status '$status'");
+    }
+  }
 }
 
 /// The current playback status
@@ -235,7 +257,20 @@ enum PlaybackStatus {
   paused,
 
   /// Stopped
-  stopped,
+  stopped;
+
+  factory PlaybackStatus.fromString(String status) {
+    switch (status) {
+      case 'Playing':
+        return PlaybackStatus.playing;
+      case 'Paused':
+        return PlaybackStatus.paused;
+      case 'Stopped':
+        return PlaybackStatus.stopped;
+      default:
+        throw Exception("Unknown playback status '$status'");
+    }
+  }
 }
 
 // ignore: public_member_api_docs
@@ -263,7 +298,7 @@ class Metadata {
             ? (map['xesam:title'] as DBusString).value
             : null,
         map['xesam:artist'] != null
-            ? ((map['xesam:artist'] as DBusArray).children)
+            ? (map['xesam:artist'] as DBusArray).children
                 .map((e) => (e as DBusString).value)
                 .toList()
             : null,
@@ -289,7 +324,7 @@ class Metadata {
             ? (map['xesam:album'] as DBusString).value
             : null,
         map['xesam:albumArtist'] != null
-            ? ((map['xesam:albumArtist'] as DBusArray).children)
+            ? (map['xesam:albumArtist'] as DBusArray).children
                 .map((e) => (e as DBusString).value)
                 .toList()
             : null,
@@ -329,4 +364,61 @@ class Metadata {
 
   // ignore: public_member_api_docs
   final int? discNumber;
+}
+
+// The following code defines a set of events related to property changes.
+// Each event is a subclass of the sealed class PropertyChangedEvent.
+
+/// The base class for property changed events.
+sealed class PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const PropertyChangedEvent();
+}
+
+/// Represents an unsupported event with a map of String keys and DBusValues.
+class UnsuportedEvent extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const UnsuportedEvent(this.value);
+  // ignore: public_member_api_docs
+  final Map<String, DBusValue> value;
+}
+
+/// Represents a metadata change event with the updated metadata.
+class MetaDataChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const MetaDataChanged(this.metadata);
+  // ignore: public_member_api_docs
+  final Metadata metadata;
+}
+
+/// Represents a playback status change event with the new playback status.
+class PlaybackStatusChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const PlaybackStatusChanged(this.playbackStatus);
+  // ignore: public_member_api_docs
+  final PlaybackStatus playbackStatus;
+}
+
+/// Represents a loop status change event with the updated loop status.
+class LoopStatusChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const LoopStatusChanged(this.loopStatus);
+  // ignore: public_member_api_docs
+  final LoopStatus loopStatus;
+}
+
+/// Represents a shuffle change event with the new shuffle status.
+class ShuffleChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const ShuffleChanged(this.shuffle);
+  // ignore: public_member_api_docs
+  final bool shuffle;
+}
+
+/// Represents a volume change event with the updated volume level.
+class VolumeChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const VolumeChanged(this.volume);
+  // ignore: public_member_api_docs
+  final double volume;
 }

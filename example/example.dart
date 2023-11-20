@@ -36,5 +36,5 @@ Future printPlaying(MPRISPlayer player) async {
   // Some delay is required because changes don't happen instantly. The timout can also be lower, but then old metadata may be returned
   await Future.delayed(const Duration(milliseconds: 500));
   final metadata = await player.getMetadata();
-  print("Playing '${metadata.trackTitle}' by '${metadata.trackArtists[0]}'");
+  print("Playing '${metadata.trackTitle}' by '${metadata.trackArtists?[0]}'");
 }
