@@ -28,4 +28,15 @@ void main() async {
   });
 
   player.seeked().listen(print);
+
+  MPRIS().playerChanged().listen((event) {
+    switch (event) {
+      case PlayerMountEvent(:final player):
+        player.toggle();
+      case PlayerUnmountEvent(:final playerName):
+        print(playerName);
+      case PlayerUnknownEvent(:final event):
+        print(event);
+    }
+  });
 }

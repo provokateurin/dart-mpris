@@ -25,6 +25,47 @@ class MPRIS {
 
   /// Get a player from it's name
   MPRISPlayer getPlayer(String name) => MPRISPlayer(_client, name);
+
+  /// player mount and unmount stream.
+  Stream<PlayerEvent> playerChanged() => _client.nameOwnerChanged
+        .where((e) => e.name.startsWith('org.mpris.MediaPlayer2'))
+        .map((e) => switch ((e.oldOwner, e.newOwner)) {
+              (null, String()) =>
+                PlayerMountEvent(MPRISPlayer(_client, e.name)),
+              (String(), null) => PlayerUnmountEvent(e.name),
+              (String(), String()) => PlayerUnknownEvent(e),
+              (null, null) => PlayerUnknownEvent(e),
+            });
+}
+
+// ignore: public_member_api_docs
+sealed class PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerEvent();
+}
+
+/// This class is used when a new player is mounted.
+class PlayerMountEvent extends PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerMountEvent(this.player);
+  // ignore: public_member_api_docs
+  final MPRISPlayer player;
+}
+
+/// Unknown state
+class PlayerUnknownEvent extends PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerUnknownEvent(this.event);
+  // ignore: public_member_api_docs
+  final DBusNameOwnerChangedEvent event;
+}
+
+/// This class is used when a new player is unmounted.
+class PlayerUnmountEvent extends PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerUnmountEvent(this.playerName);
+  // ignore: public_member_api_docs
+  final String playerName;
 }
 
 // ignore: public_member_api_docs
@@ -298,7 +339,8 @@ class Metadata {
             ? (map['xesam:title'] as DBusString).value
             : null,
         map['xesam:artist'] != null
-            ? (map['xesam:artist'] as DBusArray).children
+            ? (map['xesam:artist'] as DBusArray)
+                .children
                 .map((e) => (e as DBusString).value)
                 .toList()
             : null,
@@ -324,7 +366,8 @@ class Metadata {
             ? (map['xesam:album'] as DBusString).value
             : null,
         map['xesam:albumArtist'] != null
-            ? (map['xesam:albumArtist'] as DBusArray).children
+            ? (map['xesam:albumArtist'] as DBusArray)
+                .children
                 .map((e) => (e as DBusString).value)
                 .toList()
             : null,
