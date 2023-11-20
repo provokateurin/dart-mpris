@@ -25,6 +25,47 @@ class MPRIS {
 
   /// Get a player from it's name
   MPRISPlayer getPlayer(String name) => MPRISPlayer(_client, name);
+
+  /// player mount and unmount stream.
+  Stream<PlayerEvent> playerChanged() => _client.nameOwnerChanged
+        .where((e) => e.name.startsWith('org.mpris.MediaPlayer2'))
+        .map((e) => switch ((e.oldOwner, e.newOwner)) {
+              (null, String()) =>
+                PlayerMountEvent(MPRISPlayer(_client, e.name)),
+              (String(), null) => PlayerUnmountEvent(e.name),
+              (String(), String()) => PlayerUnknownEvent(e),
+              (null, null) => PlayerUnknownEvent(e),
+            });
+}
+
+// ignore: public_member_api_docs
+sealed class PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerEvent();
+}
+
+/// This class is used when a new player is mounted.
+class PlayerMountEvent extends PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerMountEvent(this.player);
+  // ignore: public_member_api_docs
+  final MPRISPlayer player;
+}
+
+/// Unknown state
+class PlayerUnknownEvent extends PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerUnknownEvent(this.event);
+  // ignore: public_member_api_docs
+  final DBusNameOwnerChangedEvent event;
+}
+
+/// This class is used when a new player is unmounted.
+class PlayerUnmountEvent extends PlayerEvent {
+  // ignore: public_member_api_docs
+  const PlayerUnmountEvent(this.playerName);
+  // ignore: public_member_api_docs
+  final String playerName;
 }
 
 // ignore: public_member_api_docs
@@ -40,6 +81,32 @@ class MPRISPlayer {
   final String name;
   final MediaPlayer2 _servicePlayer;
   final MediaPlayer2Player _mediaPlayer;
+
+  /// Updates at each change of a property;
+  Stream<PropertyChangedEvent> propertiesChanged() =>
+      _mediaPlayer.propertiesChanged.map((event) {
+        final map = event.values[1].asStringVariantDict();
+
+        late final PropertyChangedEvent result;
+        if (map.containsKey('PlaybackStatus')) {
+          result = PlaybackStatusChanged(
+              PlaybackStatus.fromString(map['PlaybackStatus']!.asString()));
+        } else if (map.containsKey('Metadata')) {
+          result = MetaDataChanged(
+              Metadata.fromMap(map['Metadata']!.asStringVariantDict()));
+        } else if (map.containsKey('LoopStatus')) {
+          result = LoopStatusChanged(
+              LoopStatus.fromString(map['LoopStatus']!.asString()));
+        } else if (map.containsKey('Shuffle')) {
+          result = ShuffleChanged(map['Shuffle']!.asBoolean());
+        } else if (map.containsKey('Volume')) {
+          result = VolumeChanged(map['Volume']!.asDouble());
+        } else {
+          result = UnsuportedEvent(map);
+        }
+
+        return result;
+      });
 
   /// A friendly name to identify the media player to users
   Future<String> getIdentity() => _servicePlayer.getIdentity();
@@ -79,19 +146,17 @@ class MPRISPlayer {
   /// Causes the media player to stop running
   Future quit() => _servicePlayer.callQuit();
 
+  /// Get the status
+  /// Gets org.mpris.MediaPlayer2.Player.PlaybackStatus
+  Future<PlaybackStatus> getPlaybackStatus() async {
+    final status = await _mediaPlayer.getPlaybackStatus();
+    return PlaybackStatus.fromString(status);
+  }
+
   /// Get the current loop / repeat status
   Future<LoopStatus> getLoopStatus() async {
     final status = await _mediaPlayer.getLoopStatus();
-    switch (status) {
-      case 'None':
-        return LoopStatus.none;
-      case 'Track':
-        return LoopStatus.track;
-      case 'Playlist':
-        return LoopStatus.playlist;
-      default:
-        throw Exception("Unknown loop status '$status'");
-    }
+    return LoopStatus.fromString(status);
   }
 
   /// Set the current loop / repeat status
@@ -191,11 +256,12 @@ class MPRISPlayer {
   /// Uri of the track to load (This is used to tell the media player which track to play)
   Future openUri(String uri) => _mediaPlayer.callOpenUri(uri);
 
-/*
-  This doesn't work
-  Stream<MediaPlayer2PlayerSeeked> subscribeSeeked() =>
-      _mediaPlayer.subscribeSeeked();
-   */
+  /// Indicates that the track position has changed in a way that is inconsistant with the current playing state.
+  /// When this signal is not received, clients should assume that:
+  /// - When playing, the position progresses according to the rate property.
+  /// - When paused, it remains constant.
+  Stream<Duration> seeked() => _mediaPlayer.seeked
+      .map((event) => Duration(microseconds: event.Position));
 }
 
 /// The current loop / repeat status
@@ -207,7 +273,45 @@ enum LoopStatus {
   track,
 
   /// If the playback loops through a list of tracks
-  playlist,
+  playlist;
+
+  factory LoopStatus.fromString(status) {
+    switch (status) {
+      case 'None':
+        return LoopStatus.none;
+      case 'Track':
+        return LoopStatus.track;
+      case 'Playlist':
+        return LoopStatus.playlist;
+      default:
+        throw Exception("Unknown loop status '$status'");
+    }
+  }
+}
+
+/// The current playback status
+enum PlaybackStatus {
+  /// Playing normally
+  playing,
+
+  /// Paused
+  paused,
+
+  /// Stopped
+  stopped;
+
+  factory PlaybackStatus.fromString(String status) {
+    switch (status) {
+      case 'Playing':
+        return PlaybackStatus.playing;
+      case 'Paused':
+        return PlaybackStatus.paused;
+      case 'Stopped':
+        return PlaybackStatus.stopped;
+      default:
+        throw Exception("Unknown playback status '$status'");
+    }
+  }
 }
 
 // ignore: public_member_api_docs
@@ -228,57 +332,136 @@ class Metadata {
 
   // ignore: public_member_api_docs
   factory Metadata.fromMap(Map<String, DBusValue> map) => Metadata(
-        (map['mpris:trackid'] as DBusString).value,
-        (map['xesam:title'] as DBusString).value,
-        ((map['xesam:artist'] as DBusArray).children)
-            .map((e) => (e as DBusString).value)
-            .toList(),
-        map['xesam:trackNumber'] is DBusInt32
-            ? (map['xesam:trackNumber'] as DBusInt32).value
-            : (map['xesam:trackNumber'] as DBusUint32).value,
-        (map['xesam:url'] as DBusString).value,
-        Duration(
-          microseconds: map['mpris:length'] is DBusUint64
-              ? (map['mpris:length'] as DBusUint64).value
-              : (map['mpris:length'] as DBusInt64).value,
-        ),
-        (map['mpris:artUrl'] as DBusString).value,
-        (map['xesam:album'] as DBusString).value,
-        ((map['xesam:albumArtist'] as DBusArray).children)
-            .map((e) => (e as DBusString).value)
-            .toList(),
-        map['xesam:discNumber'] is DBusInt32
-            ? (map['xesam:discNumber'] as DBusInt32).value
-            : (map['xesam:discNumber'] as DBusUint32).value,
+        map['mpris:trackid'] != null
+            ? (map['mpris:trackid'] as DBusString).value
+            : null,
+        map['xesam:title'] != null
+            ? (map['xesam:title'] as DBusString).value
+            : null,
+        map['xesam:artist'] != null
+            ? (map['xesam:artist'] as DBusArray)
+                .children
+                .map((e) => (e as DBusString).value)
+                .toList()
+            : null,
+        map['xesam:trackNumber'] != null
+            ? (map['xesam:trackNumber'] is DBusInt32
+                ? (map['xesam:trackNumber'] as DBusInt32).value
+                : (map['xesam:trackNumber'] as DBusUint32).value)
+            : null,
+        map['xesam:trackNumber'] != null
+            ? (map['xesam:url'] as DBusString).value
+            : null,
+        map['mpris:length'] != null
+            ? Duration(
+                microseconds: map['mpris:length'] is DBusUint64
+                    ? (map['mpris:length'] as DBusUint64).value
+                    : (map['mpris:length'] as DBusInt64).value,
+              )
+            : null,
+        map['mpris:artUrl'] != null
+            ? (map['mpris:artUrl'] as DBusString).value
+            : null,
+        map['xesam:album'] != null
+            ? (map['xesam:album'] as DBusString).value
+            : null,
+        map['xesam:albumArtist'] != null
+            ? (map['xesam:albumArtist'] as DBusArray)
+                .children
+                .map((e) => (e as DBusString).value)
+                .toList()
+            : null,
+        map['xesam:discNumber'] != null
+            ? (map['xesam:discNumber'] is DBusInt32
+                ? (map['xesam:discNumber'] as DBusInt32).value
+                : (map['xesam:discNumber'] as DBusUint32).value)
+            : null,
       );
 
   // ignore: public_member_api_docs
-  final String trackId;
+  final String? trackId;
 
   // ignore: public_member_api_docs
-  final String trackTitle;
+  final String? trackTitle;
 
   // ignore: public_member_api_docs
-  final List<String> trackArtists;
+  final List<String>? trackArtists;
 
   // ignore: public_member_api_docs
-  final int trackNumber;
+  final int? trackNumber;
 
   // ignore: public_member_api_docs
-  final String trackUrl;
+  final String? trackUrl;
 
   // ignore: public_member_api_docs
-  final Duration trackLength;
+  final Duration? trackLength;
 
   // ignore: public_member_api_docs
-  final String trackArtUrl;
+  final String? trackArtUrl;
 
   // ignore: public_member_api_docs
-  final String albumName;
+  final String? albumName;
 
   // ignore: public_member_api_docs
-  final List<String> albumArtists;
+  final List<String>? albumArtists;
 
   // ignore: public_member_api_docs
-  final int discNumber;
+  final int? discNumber;
+}
+
+// The following code defines a set of events related to property changes.
+// Each event is a subclass of the sealed class PropertyChangedEvent.
+
+/// The base class for property changed events.
+sealed class PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const PropertyChangedEvent();
+}
+
+/// Represents an unsupported event with a map of String keys and DBusValues.
+class UnsuportedEvent extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const UnsuportedEvent(this.value);
+  // ignore: public_member_api_docs
+  final Map<String, DBusValue> value;
+}
+
+/// Represents a metadata change event with the updated metadata.
+class MetaDataChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const MetaDataChanged(this.metadata);
+  // ignore: public_member_api_docs
+  final Metadata metadata;
+}
+
+/// Represents a playback status change event with the new playback status.
+class PlaybackStatusChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const PlaybackStatusChanged(this.playbackStatus);
+  // ignore: public_member_api_docs
+  final PlaybackStatus playbackStatus;
+}
+
+/// Represents a loop status change event with the updated loop status.
+class LoopStatusChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const LoopStatusChanged(this.loopStatus);
+  // ignore: public_member_api_docs
+  final LoopStatus loopStatus;
+}
+
+/// Represents a shuffle change event with the new shuffle status.
+class ShuffleChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const ShuffleChanged(this.shuffle);
+  // ignore: public_member_api_docs
+  final bool shuffle;
+}
+
+/// Represents a volume change event with the updated volume level.
+class VolumeChanged extends PropertyChangedEvent {
+  // ignore: public_member_api_docs
+  const VolumeChanged(this.volume);
+  // ignore: public_member_api_docs
+  final double volume;
 }
