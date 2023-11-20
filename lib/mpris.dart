@@ -79,6 +79,22 @@ class MPRISPlayer {
   /// Causes the media player to stop running
   Future quit() => _servicePlayer.callQuit();
 
+  /// Get the status
+  /// Gets org.mpris.MediaPlayer2.Player.PlaybackStatus
+  Future<PlaybackStatus> getPlaybackStatus() async {
+    final status = await _mediaPlayer.getPlaybackStatus();
+    switch (status) {
+      case 'Playing':
+        return PlaybackStatus.playing;
+      case 'Paused':
+        return PlaybackStatus.paused;
+      case 'Stopped':
+        return PlaybackStatus.stopped;
+      default:
+        throw Exception("Unknown playback status '$status'");
+    }
+  }
+
   /// Get the current loop / repeat status
   Future<LoopStatus> getLoopStatus() async {
     final status = await _mediaPlayer.getLoopStatus();
@@ -210,6 +226,18 @@ enum LoopStatus {
   playlist,
 }
 
+/// The current playback status
+enum PlaybackStatus {
+  /// Playing normally
+  playing,
+
+  /// Paused
+  paused,
+
+  /// Stopped
+  stopped,
+}
+
 // ignore: public_member_api_docs
 class Metadata {
   // ignore: public_member_api_docs
@@ -228,57 +256,77 @@ class Metadata {
 
   // ignore: public_member_api_docs
   factory Metadata.fromMap(Map<String, DBusValue> map) => Metadata(
-        (map['mpris:trackid'] as DBusString).value,
-        (map['xesam:title'] as DBusString).value,
-        ((map['xesam:artist'] as DBusArray).children)
-            .map((e) => (e as DBusString).value)
-            .toList(),
-        map['xesam:trackNumber'] is DBusInt32
-            ? (map['xesam:trackNumber'] as DBusInt32).value
-            : (map['xesam:trackNumber'] as DBusUint32).value,
-        (map['xesam:url'] as DBusString).value,
-        Duration(
-          microseconds: map['mpris:length'] is DBusUint64
-              ? (map['mpris:length'] as DBusUint64).value
-              : (map['mpris:length'] as DBusInt64).value,
-        ),
-        (map['mpris:artUrl'] as DBusString).value,
-        (map['xesam:album'] as DBusString).value,
-        ((map['xesam:albumArtist'] as DBusArray).children)
-            .map((e) => (e as DBusString).value)
-            .toList(),
-        map['xesam:discNumber'] is DBusInt32
-            ? (map['xesam:discNumber'] as DBusInt32).value
-            : (map['xesam:discNumber'] as DBusUint32).value,
+        map['mpris:trackid'] != null
+            ? (map['mpris:trackid'] as DBusString).value
+            : null,
+        map['xesam:title'] != null
+            ? (map['xesam:title'] as DBusString).value
+            : null,
+        map['xesam:artist'] != null
+            ? ((map['xesam:artist'] as DBusArray).children)
+                .map((e) => (e as DBusString).value)
+                .toList()
+            : null,
+        map['xesam:trackNumber'] != null
+            ? (map['xesam:trackNumber'] is DBusInt32
+                ? (map['xesam:trackNumber'] as DBusInt32).value
+                : (map['xesam:trackNumber'] as DBusUint32).value)
+            : null,
+        map['xesam:trackNumber'] != null
+            ? (map['xesam:url'] as DBusString).value
+            : null,
+        map['mpris:length'] != null
+            ? Duration(
+                microseconds: map['mpris:length'] is DBusUint64
+                    ? (map['mpris:length'] as DBusUint64).value
+                    : (map['mpris:length'] as DBusInt64).value,
+              )
+            : null,
+        map['mpris:artUrl'] != null
+            ? (map['mpris:artUrl'] as DBusString).value
+            : null,
+        map['xesam:album'] != null
+            ? (map['xesam:album'] as DBusString).value
+            : null,
+        map['xesam:albumArtist'] != null
+            ? ((map['xesam:albumArtist'] as DBusArray).children)
+                .map((e) => (e as DBusString).value)
+                .toList()
+            : null,
+        map['xesam:discNumber'] != null
+            ? (map['xesam:discNumber'] is DBusInt32
+                ? (map['xesam:discNumber'] as DBusInt32).value
+                : (map['xesam:discNumber'] as DBusUint32).value)
+            : null,
       );
 
   // ignore: public_member_api_docs
-  final String trackId;
+  final String? trackId;
 
   // ignore: public_member_api_docs
-  final String trackTitle;
+  final String? trackTitle;
 
   // ignore: public_member_api_docs
-  final List<String> trackArtists;
+  final List<String>? trackArtists;
 
   // ignore: public_member_api_docs
-  final int trackNumber;
+  final int? trackNumber;
 
   // ignore: public_member_api_docs
-  final String trackUrl;
+  final String? trackUrl;
 
   // ignore: public_member_api_docs
-  final Duration trackLength;
+  final Duration? trackLength;
 
   // ignore: public_member_api_docs
-  final String trackArtUrl;
+  final String? trackArtUrl;
 
   // ignore: public_member_api_docs
-  final String albumName;
+  final String? albumName;
 
   // ignore: public_member_api_docs
-  final List<String> albumArtists;
+  final List<String>? albumArtists;
 
   // ignore: public_member_api_docs
-  final int discNumber;
+  final int? discNumber;
 }
